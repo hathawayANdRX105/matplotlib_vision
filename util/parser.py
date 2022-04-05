@@ -9,7 +9,7 @@ from wordcloud import WordCloud
 
 # word cloud
 def get_word_list(word_list_path):
-    f = open(word_list_path, encoding='gbk')
+    f = open(word_list_path, encoding='utf-8')
     wordList = f.read()
     return wordList
 
