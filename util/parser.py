@@ -7,6 +7,12 @@ import numpy as np
 from wordcloud import WordCloud
 
 
+def setChinese():
+    plt.rcParams['font.family'] = ['FangSong']
+    # plt.rcParams['font.family'] = ['SimHei']
+    plt.rcParams['axes.unicode_minus'] = False
+
+
 # word cloud
 def get_word_list(word_list_path):
     f = open(word_list_path, encoding='utf-8')
@@ -71,13 +77,18 @@ def get_data_without_single_word(sort_result, sort_count):
     return data, data_count
 
 
-def get_data(word_list_path):
+def get_data(word_list_path, extra_filter_func=None):
     source = get_word_list(word_list_path)
-    filter_source = get_filter_source_symbols(source)
 
-    split_word_list = list(jieba.cut(filter_source, cut_all=False))
+    # 更多的筛选文本的补充函数, 输入文本, 输出过滤后的文本
+    if extra_filter_func:
+        source = extra_filter_func(source)
+
+    # print(filter_source)
+    split_word_list = list(jieba.cut(source, cut_all=False))
     result, count = np.unique(split_word_list, return_counts=True)
 
+    # 过滤 单个字符以及字符
     data, data_count = get_data_without_single_word(result, count)
 
     sort_data, sort_data_count = get_sort_data(data, data_count)
