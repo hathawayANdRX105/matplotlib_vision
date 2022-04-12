@@ -4,9 +4,17 @@ import jieba
 import numpy as np
 import pandas as pd
 
-from util.parser import get_data
 from util.parser import get_data_without_single_word, get_word_list
 from util.parser import get_filter_source_symbols
+from util.parser import get_sort_data
+
+
+def get_file_path(file_name):
+    import os
+    project_path = os.path.dirname(os.getcwd())
+    note_path = r"{}\data\seaborn_data\{}".format(project_path, file_name)
+
+    return note_path
 
 
 # 获取小说每一章的list
@@ -72,8 +80,8 @@ def get_chapter_word_list_and_name_list(chapter_source, name_list):
 
 def replace_text_short_name_with_roles_full_name(text_source):
     """替换某些缺省人物名称, 方便统计"""
-    match_name_list = [r'林道静', r'余永泽', r'卢嘉川', ]
-    replace_name_list = ['道静', '永泽', '嘉川', ]
+    match_name_list = [r'林道静', r'余永泽', r'卢嘉川', r'王晓燕', r'白莉苹', ]
+    replace_name_list = ['道静', '永泽', '嘉川', '晓燕', '莉苹', ]
 
     filter_note_source = text_source
     for match_name, replace_name in zip(match_name_list, replace_name_list):
@@ -83,7 +91,27 @@ def replace_text_short_name_with_roles_full_name(text_source):
     return filter_note_source
 
 
+def get_stopword_list(file):
+    with open(file, 'r', encoding='utf-8') as f:  #
+        stopword_list = [word.strip('\n') for word in f.readlines()]
+    return stopword_list
+
+
+def filter_out_stopword(source):
+    # filter out stop word
+    stopword_list = get_stopword_list(get_file_path('hit_stopwords.txt'))
+    word_list = jieba.lcut(source)
+    result = ""
+
+    for w in word_list:
+        if w not in stopword_list:
+            result += w
+
+    return result
+
+
 def get_chapter_list(note_path):
+    print(note_path)
     """ 获取章节list, 未分词 """
     note_source = get_word_list(note_path)
     # filter_note_source = get_filter_source_symbols(note_source)
@@ -94,6 +122,9 @@ def get_chapter_list(note_path):
 
     # print(maker_setup_note_source)
     maker_setup_note_source = replace_text_short_name_with_roles_full_name(maker_setup_note_source)
+
+    # filter out stop word
+    maker_setup_note_source = filter_out_stopword(maker_setup_note_source)
 
     # print(maker_setup_note_source)
     maker_string = r'mark'
@@ -108,13 +139,16 @@ def save_chapter_count_to_csv_file(chapter_list, csv_name):
     """
     每章分词 保存为csv
     """
+    jieba.load_userdict(get_file_path('dict.txt'))
 
     i = 1
     total_chapter_index, total_data, total_data_count = [], [], []
     for single_chapter in chapter_list:
         # print(single_chapter, '\n\n ------------------------------------')
 
+        single_chapter = filter_out_stopword(single_chapter)
         split_word_list = list(jieba.cut(single_chapter, cut_all=False))
+
         result, count = np.unique(split_word_list, return_counts=True)
         data, data_count = get_data_without_single_word(result, count)
 
@@ -137,10 +171,21 @@ def save_chapter_count_to_csv_file(chapter_list, csv_name):
 
 def save_volume_count_to_csv_file(volume_file_path, csv_file_path):
     # 小说 每卷分词 (第一卷 , 第二卷)
-    volume2_data, volume2_data_count = get_data(volume_file_path, replace_text_short_name_with_roles_full_name)
+    source = get_word_list(volume_file_path)
+    jieba.load_userdict(get_file_path('dict.txt'))
 
-    df = pd.DataFrame({'word': volume2_data, 'count': volume2_data_count})
+    # 更多的筛选文本的补充函数, 输入文本, 输出过滤后的文本
+    source = replace_text_short_name_with_roles_full_name(source)
+    source = filter_out_stopword(source)
 
+    # print(filter_source)
+    split_word_list = list(jieba.cut(source, cut_all=False))
+    result, count = np.unique(split_word_list, return_counts=True)
+
+    # 过滤 单个字符以及字符
+    data, data_count = get_data_without_single_word(result, count)
+    sort_data, sort_data_count = get_sort_data(data, data_count)
+
+    df = pd.DataFrame({'word': sort_data, 'count': sort_data_count})
     df.to_csv(csv_file_path)
-
     print("ok! csv_file => {}".format(csv_file_path))
